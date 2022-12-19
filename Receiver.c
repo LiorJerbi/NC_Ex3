@@ -12,13 +12,13 @@
 
 #define RECEIVER_PORT 5093 //the port that the reciver listens to.
 #define BUFF_SIZE 32768
-#define MSG_SIZE 600517
+#define MSG_SIZE 601418
 
 /*
 TCP Receiver
 */
 int main(){
-    
+   
     static int Flag = 1;
     char Ack[] = "0100 0001 0011"; // Acknowledge agreed upon.
     int aLen =strlen(Ack)+1;
@@ -26,8 +26,8 @@ int main(){
     char ctumsg[] = "Continue connection";
     clock_t staTime,finTime;
     int tryCount1=0,tryCount2=0,byteSent=0,byteRec = 0;    
-    long rcved = 0,rcveduntil=0;
-    
+    long rcveduntil1=0,rcveduntil2=0,rcved1=0,rcved2=0;
+   
     //open listening socket for reciver
     int listening_socket = socket(AF_INET, SOCK_STREAM, 0);
     
@@ -51,8 +51,7 @@ int main(){
         close(listening_socket);
         exit(1);
     }
-
-    //binding the socket to the port with any IP connecting to port.
+     //binding the socket to the port with any IP connecting to port.
     if(bind(listening_socket,(struct sockaddr *)&receiverAddress, sizeof(receiverAddress)) == -1){
         perror("Binding failed.\n");
         close(listening_socket);
@@ -82,9 +81,9 @@ int main(){
         return -1;
     }
     printf("A new connection accepted!\n");
-    
-    while(Flag){ //Running the loop until sender close socket.
-        
+
+    while(Flag){
+
         char buff[BUFF_SIZE]={0};
         char buffcc[256] = {0};
         socklen_t buflen = sizeof(buffcc);
@@ -104,45 +103,47 @@ int main(){
         
         printf("Receiver ready\n");
         staTime = clock(); //a variable for holding the time to calculate
-        rcveduntil = 0 ,tryCount1 = 0;
-        while(rcveduntil<MSG_SIZE&&(rcved = recv(senderSocket,buff,sizeof(buff),0))>0){   //loop for receiving first half of message from sender.
-            rcveduntil+=rcved;
-            tryCount1++; //Attempt count
-            printf("received now: %ld ,rcved tot:%ld ,Seg Num: %d\n",rcved,rcveduntil,tryCount1);
-            if(rcveduntil == MSG_SIZE){
+        rcveduntil1 = 0 ,tryCount1 = 0;
+        printf("Receiver ready\n");
+        staTime = clock(); //a variable for holding the time to calculate
+        while (rcveduntil1<MSG_SIZE && (rcved1 = recv(senderSocket,buff,sizeof(buff),0))>0){
+            rcveduntil1 += rcved1;
+            tryCount1++;//Attempt count
+            printf("received now: %ld, received total: %ld,Seg Num: %d\n",rcved1,rcveduntil1,tryCount1);
+            if(rcveduntil1 == MSG_SIZE){
                 printf("first part arrived completely\n");
                 break;
             }
-            if(rcved == -1){
-                perror("recv() error.\n");
+            if(rcved1 == -1){
+              perror("recv() error.\n");
                 return -1;
             }
-/*            if(rcved == 0){
+            if(rcved1 == 0){
                 printf("Peer closed the TCP connection socket.\n");
                 close(senderSocket);
                 Flag=0;
                 return -1;
-            }*/
-        }      
-        //rcved = recv(senderSocket,buff,sizeof(buff),0);
+            }
+        }
         finTime = clock();
         double timeSum1 = (double)(finTime-staTime);  //calculating seconds needed for messag to arrive.
-        printf("Recieved bytes total:%ld in %f seconds.\n",rcveduntil,timeSum1);
+        printf("Recieved bytes total:%ld in %f seconds.\n",rcveduntil1,timeSum1);
         printf("New Average time for receiving data: %f\n",timeSum1/tryCount1);
         printf("Total time for arrival:%f\nin %d Segments.\n",timeSum1,tryCount1);
-    
-        //memset(buff,0,BUFF_SIZE);
-        
-        //Sending back authentication to the sender.
+
+        //restore value of varibals
+
+        //print what the is the correct Ack
+        printf("aLen: %d,size of ack: %ld,byte sent: %d \n ",aLen,sizeof(Ack),byteSent);
         byteSent = 0;
-        while(1){
-            byteSent=send(senderSocket,Ack,aLen,0);
+        while((byteSent = send(senderSocket,Ack,aLen,0))>0){
+            byteSent = send(senderSocket,Ack,aLen,0);
             printf("aLen: %d,size of ack: %ld,byte sent: %d \n ",aLen,sizeof(Ack),byteSent);    
-            if(byteSent==-1){
+            if(byteSent == -1){
                 perror("Acknowledgment send() failed.");
                 return -1;
             }
-            if(byteSent==0){
+            if(byteSent == 0){
                 printf("Peer closed the TCP connection socket.\n");
                 close(senderSocket);
                 Flag=0;
@@ -150,13 +151,11 @@ int main(){
             }
             if(byteSent<aLen){
                 printf("Ack not fully sent.\n");
-                //byteSent+=send(senderSocket,Ack,aLen,0);
             }
             if(byteSent==aLen){
                 printf("Acknowledgment sent successfully, waiting for data.\n");
                 break;
             }
-            //byteSent=send(senderSocket,Ack,aLen,0);
         }
         //Changing the CC algo
         printf("Setting CC Algo to reno\n");
@@ -173,44 +172,41 @@ int main(){
             close(senderSocket);
             return -1;
         }
-        
-        rcveduntil = 0 ,tryCount2 = 0;
-        staTime = clock(); //a variable for holding the start time to calculate
-        while(rcveduntil<MSG_SIZE&&(rcved = recv(senderSocket,buff,sizeof(buff),0))>0){  //loop for receiving second half of message from sender.(changed CC)
-            rcveduntil+=rcved;
+        rcveduntil2 = 0,tryCount2=0;
+        staTime = clock();
+        while(rcveduntil2<MSG_SIZE &&(rcved2 = recv(senderSocket,buff,sizeof(buff),0))>0){  //loop for receiving second half of message from sender.(changed CC)
+            rcveduntil2+=rcved2;
             tryCount2++;       //Attempt count
-            printf("received now: %ld, rcved tot:%ld ,trycount= %d\n",rcved,rcveduntil,tryCount2);
-            if(rcveduntil==MSG_SIZE){
+            printf("received now: %ld, received total: %ld.,trycount= %d\n",rcved2,rcveduntil2,tryCount2);
+            if(rcveduntil2==MSG_SIZE){
                 printf("second part arrived completely\n");
                 break;
             }
-        }
-            if(rcved==-1){
+            if(rcved2==-1){
                 perror("recv() error.\n");
                 return -1;
             }
-/*          if(rcved==0){
+            if(rcved2==0){
                 printf("Peer closed the TCP connection socket.\n");
                 close(senderSocket);
                 Flag=0;
                 return -1;
-            }*/     
-        
+            }      
+        }
         finTime = clock();
         double timeSum2 = (double)(finTime-staTime);  //calculating seconds needed for messag to arrive.
-
-        printf("Recieved bytes total:%ld in %f seconds.\n",rcveduntil,timeSum2);
+        
+        printf("Recieved bytes total:%ld in %f seconds.\n",rcveduntil2,timeSum2);
         printf("New Average time for receiving data: %f\n",timeSum2/tryCount2);
         printf("Total time for arrival:%f\nin %d attempts.\n",timeSum2,tryCount2);
-        
-        //memset(buff,0,BUFF_SIZE);
+
         //checking for exit\continue msg.
-        
+
         byteRec = 0;
         printf("The receiver wait for sender decision \n");
+
         while(1){
             byteRec = recv(senderSocket,buff,sizeof(buff),0);
-            //printf("buff at ctu/exit:%s\n",buff);
             if(byteRec<0){
                 perror("recv() error.\n");
                 close(senderSocket);
@@ -230,7 +226,6 @@ int main(){
             }  
         }
         
-        //memset(buff,0,BUFF_SIZE);
 
     }
 close(listening_socket);

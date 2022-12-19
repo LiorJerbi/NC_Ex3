@@ -12,7 +12,7 @@
 #define RECEIVER_PORT 5093  
 #define SENDER_IP "127.0.0.1"  
 #define BUFF_SIZE 32768
-#define MSG_SIZE 600517
+#define MSG_SIZE 601418
 
 /*
 TCP Sender
@@ -37,10 +37,9 @@ int main(){
     l2 =fread(msg2,sizeof(char),hflen,fp);
     fclose(fp);
     
-    
     char loop = '0';
     char Ack[] = "0100 0001 0011"; // Acknowledge agreed upon.
-    int byteSent=0,byteRecv=0,aLen = strlen(Ack);
+    int byteSent=0,byteRecv=0,byteRecvUntil =0,aLen = strlen(Ack);
    
          
     
@@ -69,13 +68,15 @@ int main(){
         close(sender_sockfd);
         return -1;
     }
-    
+     
     printf("Connection succeeded!\n");
-    char buff[BUFF_SIZE]={0}; 
-    char buffcc[256]={0};
-    socklen_t buflen= sizeof(buffcc);
+   
     
-    while(loop!='Y'&& loop!='y'){       
+    while(loop!='Y'&& loop!='y'){   
+        char buff[BUFF_SIZE]={0}; 
+        char buffcc[256]={0};
+        socklen_t buflen= sizeof(buffcc);
+
         printf("Setting CC Algo to cubic\n");
         strcpy(buffcc,"cubic");   //Changing the CC algo to "cubic"
         if(setsockopt(sender_sockfd,IPPROTO_TCP,TCP_CONGESTION,buffcc,buflen)!=0){
@@ -90,15 +91,15 @@ int main(){
             return -1;
         }
 
-        byteSent = 0;
         //Sending 1st half of the file in "cubic" CC algo
+        byteSent =0;
         while((byteSent = send(sender_sockfd,msg1,l1,0))>0){ //if the file didn't fully arrived resend. 
             byteSent = send(sender_sockfd,msg1,l1,0);
+            
             if(byteSent==l1){
                 printf("first part of message sent successfully! with %d Bytes.\n",byteSent);
                 break;
             }
-        }
             if(byteSent==-1){
                 perror("send() error!\n");
                 return -1;
@@ -109,16 +110,14 @@ int main(){
             }
             if(byteSent<l1){
                 printf("message didnt fully arrived  %d bytes arrived,sending again...\n",byteSent);
-            //    byteSent = send(sender_sockfd,msg1,l1,0);
             }
-        
-        
+        }
+
         printf("Sender waiting for Ack...\n");
         //waiting to get Acknowledge from reciver.
-        //memset(buff,0,sizeof(buff));
-        byteRecv = 0;
-        while(byteRecv<(strlen(Ack)+1)){
-            byteRecv = recv(sender_sockfd,buff,sizeof(buff),0);
+        byteRecvUntil =0;
+        while(byteRecvUntil<strlen(Ack)+1 && (byteRecv = recv(sender_sockfd,buff,sizeof(buff),0)>0)){
+            byteRecvUntil += byteRecv;
             printf("Ack: %d, Byte: %d,Sizeifbuff: %ld, ValueOfBuff: %s \n",aLen,byteRecv,sizeof(buff),buff);
             if(strcmp(Ack,buff) == 0){
                 printf("Ack recived, sending second part of msg...\n"); //recived Ack from reciver continue.
@@ -134,13 +133,12 @@ int main(){
                 close(sender_sockfd);
                 return -1;
             }
-            if(byteRecv < sizeof(buff)){
-                printf("Ack not fully arrived, try again\n");
-               // byteRecv += recv(sender_sockfd,buff,sizeof(buff),0);
+            if(byteRecvUntil == strlen(Ack)+1){
+                printf("Ack arrived completely\n");
+                break;
             }
-            //byteRecv = recv(sender_sockfd,buff,sizeof(buff),0);
+            
         }
-        //memset(buff,0,BUFF_SIZE);
         
 
         //Changing the CC algo
@@ -152,22 +150,21 @@ int main(){
             close(sender_sockfd);
             return -1;
         }
-        buflen = sizeof(buffcc);
+        buflen = sizeof(buff);
         if(getsockopt(sender_sockfd,IPPROTO_TCP,TCP_CONGESTION,buffcc,&buflen)!=0){
             perror("getsockopt() failed\n");
             close(sender_sockfd);
             return -1;
         }
-
-        byteSent=0;
+        
         //Sending 2nd part of the file in "reno" CC algo.
+        byteSent=0;
         while((byteSent = send(sender_sockfd,msg2,l2,0))>0){ //if the file didn't fully arrived resend.
             byteSent = send(sender_sockfd,msg2,l2,0);
             if(byteSent==l2){
                 printf("second part of message sent successfully!\n");
                 break;
             }
-        }
             if(byteSent==-1){
                 perror("send() error!\n");
                 close(sender_sockfd);
@@ -179,13 +176,10 @@ int main(){
             }
             if(byteSent<l2){
                 printf("message didnt fully arrived sending again...\n");
-                //byteSent = send(sender_sockfd,msg2,l2,0);
             }
-        
+        }
         printf("message fully sent!\nPrepairing to send again, if you want to stop press Y or y else any other key:\n");
-        scanf("%c",&loop);
-        //giving the user an option to send the message again.
-        //scanf("message fully sent!\nPrepairing to send again, if you want to stop press Y or y else any other key:\n%c",&loop);
+        scanf(" %c",&loop);
         
         //Continue communication with receiver
         if(loop!='Y' && loop!='y'){
