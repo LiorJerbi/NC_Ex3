@@ -36,9 +36,8 @@ int main(){
     fseek(fp,hflen,SEEK_SET);       //sets file pointer to middle of the file.
     l2 =fread(msg2,sizeof(char),hflen,fp);
     fclose(fp);
-    
     char loop = '0';
-    char Ack[] = "0100 0001 0011"; // Acknowledge agreed upon.
+    char Ack[] = "0000 0100 0001 0011"; //bitwise XOR between 4 last id's numbers.(9493^8454)
     int byteSent=0,byteRecv=0,byteRecvUntil =0,aLen = strlen(Ack);
    
          

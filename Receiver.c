@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define RECEIVER_PORT 5093 //the port that the reciver listens to.
 #define BUFF_SIZE 32768
@@ -20,14 +21,16 @@ TCP Receiver
 int main(){
    
     static int Flag = 1;
-    char Ack[] = "0100 0001 0011"; // Acknowledge agreed upon.
+    char Ack[] = "0000 0100 0001 0011"; //bitwise XOR between 4 last id's numbers.(9493^8454)
     int aLen =strlen(Ack)+1;
     char exitmsg[] = "Closeing connection";
     char ctumsg[] = "Continue connection";
-    clock_t staTime,finTime;
-    int tryCount1=0,tryCount2=0,byteSent=0,byteRec = 0;    
+    double timeData[2][1000] = {0}; //Dataset to contain all the times took for receiver.
+    struct timeval staTime,finTime;
+    int tryCount1=0,tryCount2=0,byteSent=0,byteRec=0,i=0,steps=0;    
     long rcveduntil1=0,rcveduntil2=0,rcved1=0,rcved2=0;
-   
+    double timerAvg1 =0, timerAvg2 =0, secs=0, usecs=0;
+    
     //open listening socket for reciver
     int listening_socket = socket(AF_INET, SOCK_STREAM, 0);
     
@@ -102,11 +105,9 @@ int main(){
         }
         
         printf("Receiver ready\n");
-        staTime = clock(); //a variable for holding the time to calculate
         rcveduntil1 = 0 ,tryCount1 = 0;
-        printf("Receiver ready\n");
-        staTime = clock(); //a variable for holding the time to calculate
-        while (rcveduntil1<MSG_SIZE && (rcved1 = recv(senderSocket,buff,sizeof(buff),0))>0){
+        gettimeofday(&staTime,NULL); //a variable for holding the time to calculate
+        while(rcveduntil1<MSG_SIZE && (rcved1 = recv(senderSocket,buff,sizeof(buff),0))>0){
             rcveduntil1 += rcved1;
             tryCount1++;//Attempt count
             printf("received now: %ld, received total: %ld,Seg Num: %d\n",rcved1,rcveduntil1,tryCount1);
@@ -125,9 +126,12 @@ int main(){
                 return -1;
             }
         }
-        finTime = clock();
-        double timeSum1 = (double)(finTime-staTime);  //calculating seconds needed for messag to arrive.
-        printf("Recieved bytes total:%ld in %f seconds.\n",rcveduntil1,timeSum1);
+        gettimeofday(&finTime,NULL);
+        secs = (double)(finTime.tv_sec-staTime.tv_sec);
+        usecs = (double)(finTime.tv_usec-staTime.tv_usec);
+        double timeSum1 = (double)((secs*1000)+(usecs/1000));  //calculating seconds needed for messag to arrive.
+        timeData[0][i]=timeSum1;
+        printf("Recieved bytes total:%ld in %f Time took completley:.\n",rcveduntil1,timeSum1);
         printf("New Average time for receiving data: %f\n",timeSum1/tryCount1);
         printf("Total time for arrival:%f\nin %d Segments.\n",timeSum1,tryCount1);
 
@@ -173,7 +177,7 @@ int main(){
             return -1;
         }
         rcveduntil2 = 0,tryCount2=0;
-        staTime = clock();
+        gettimeofday(&staTime,NULL);
         while(rcveduntil2<MSG_SIZE &&(rcved2 = recv(senderSocket,buff,sizeof(buff),0))>0){  //loop for receiving second half of message from sender.(changed CC)
             rcveduntil2+=rcved2;
             tryCount2++;       //Attempt count
@@ -193,9 +197,11 @@ int main(){
                 return -1;
             }      
         }
-        finTime = clock();
-        double timeSum2 = (double)(finTime-staTime);  //calculating seconds needed for messag to arrive.
-        
+        gettimeofday(&finTime,NULL);
+        secs = (double)(finTime.tv_sec-staTime.tv_sec);
+        usecs = (double)(finTime.tv_usec-staTime.tv_usec);
+        double timeSum2 = (double)((secs*1000)+(usecs/1000));  //calculating seconds needed for messag to arrive.
+        timeData[1][i]=timeSum2;
         printf("Recieved bytes total:%ld in %f seconds.\n",rcveduntil2,timeSum2);
         printf("New Average time for receiving data: %f\n",timeSum2/tryCount2);
         printf("Total time for arrival:%f\nin %d attempts.\n",timeSum2,tryCount2);
@@ -213,9 +219,19 @@ int main(){
                 return -1;           
             }
             if(strcmp(buff,exitmsg) == 0){
-                printf("all times:\n");//need to print out the times
-                printf("Averae time took to send the 1st part: %f\nAverae time took to send the 2nd part: %f \n",(timeSum1/tryCount1),(timeSum2/tryCount2));//calculate avg time of each part of the msg
-                printf("Average time for sending the complete file: %f\n",((timeSum1+timeSum2)/(tryCount1+tryCount2)));//need to print avg time of all file
+                printf("all times:\n");
+                steps=i;
+                while(i>=0){
+                printf("Round num: %d. 1st half time: %f. 2nd half time: %f.\n",i,timeData[0][i],timeData[1][i]);
+                timerAvg1+=timeData[0][i];
+                timerAvg2+=timeData[1][i];
+                i--;
+                }
+                //printf("Averae time took to send the 1st part: %f\nAverae time took to send the 2nd part: %f \n",(timeSum1/tryCount1),(timeSum2/tryCount2));//calculate avg time of each part of the msg
+                //printf("Average time for sending the complete file: %f\n",((timeSum1+timeSum2)/(tryCount1+tryCount2)));//need to print avg time of all file
+                printf("Average time for cubic Algo: %f\n",timerAvg1/steps);
+                printf("Average time for reno Algo: %f\n",timerAvg2/steps);
+                printf("Total Average time for the file: %f\n",(timerAvg1+timerAvg2)/(steps*2));
                 close(senderSocket);
                 Flag=0;
                 break;
@@ -225,8 +241,7 @@ int main(){
                 break;
             }  
         }
-        
-
+        i++;
     }
 close(listening_socket);
 return 0;
