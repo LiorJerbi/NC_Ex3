@@ -90,14 +90,15 @@ int main(){
             return -1;
         }
 
+        byteSent = 0;
         //Sending 1st half of the file in "cubic" CC algo
-       
-        while(1){ //if the file didn't fully arrived resend.
+        while((byteSent = send(sender_sockfd,msg1,l1,0))>0){ //if the file didn't fully arrived resend. 
             byteSent = send(sender_sockfd,msg1,l1,0);
             if(byteSent==l1){
                 printf("first part of message sent successfully! with %d Bytes.\n",byteSent);
                 break;
             }
+        }
             if(byteSent==-1){
                 perror("send() error!\n");
                 return -1;
@@ -106,18 +107,18 @@ int main(){
                 printf("Peer closed the TCP connection socket.\n");
                 return -1;
             }
-   /*         if(byteSent<l1){
+            if(byteSent<l1){
                 printf("message didnt fully arrived  %d bytes arrived,sending again...\n",byteSent);
-                byteSent = send(sender_sockfd,msg1,l1,0);
-            }*/
-        }
-        byteSent = 0;
+            //    byteSent = send(sender_sockfd,msg1,l1,0);
+            }
+        
+        
         printf("Sender waiting for Ack...\n");
         //waiting to get Acknowledge from reciver.
         //memset(buff,0,sizeof(buff));
-        byteRecv = recv(sender_sockfd,buff,sizeof(buff),0);
-        while(1){
-            
+        byteRecv = 0;
+        while(byteRecv<(strlen(Ack)+1)){
+            byteRecv = recv(sender_sockfd,buff,sizeof(buff),0);
             printf("Ack: %d, Byte: %d,Sizeifbuff: %ld, ValueOfBuff: %s \n",aLen,byteRecv,sizeof(buff),buff);
             if(strcmp(Ack,buff) == 0){
                 printf("Ack recived, sending second part of msg...\n"); //recived Ack from reciver continue.
@@ -133,14 +134,14 @@ int main(){
                 close(sender_sockfd);
                 return -1;
             }
-            if(byteRecv< sizeof(buff)){
+            if(byteRecv < sizeof(buff)){
                 printf("Ack not fully arrived, try again\n");
                // byteRecv += recv(sender_sockfd,buff,sizeof(buff),0);
             }
-            byteRecv = recv(sender_sockfd,buff,sizeof(buff),0);
+            //byteRecv = recv(sender_sockfd,buff,sizeof(buff),0);
         }
-        memset(buff,0,BUFF_SIZE);
-        byteRecv =0;
+        //memset(buff,0,BUFF_SIZE);
+        
 
         //Changing the CC algo
         printf("Setting CC Algo to reno\n");
@@ -151,34 +152,36 @@ int main(){
             close(sender_sockfd);
             return -1;
         }
-        buflen = sizeof(buff);
+        buflen = sizeof(buffcc);
         if(getsockopt(sender_sockfd,IPPROTO_TCP,TCP_CONGESTION,buffcc,&buflen)!=0){
             perror("getsockopt() failed\n");
             close(sender_sockfd);
             return -1;
         }
-        //Sending 2nd part of the file in "reno" CC algo.
+
         byteSent=0;
-        byteSent = send(sender_sockfd,msg2,l2,0);
-        while(1){ //if the file didn't fully arrived resend.
+        //Sending 2nd part of the file in "reno" CC algo.
+        while((byteSent = send(sender_sockfd,msg2,l2,0))>0){ //if the file didn't fully arrived resend.
+            byteSent = send(sender_sockfd,msg2,l2,0);
             if(byteSent==l2){
                 printf("second part of message sent successfully!\n");
                 break;
             }
+        }
             if(byteSent==-1){
                 perror("send() error!\n");
                 close(sender_sockfd);
             return -1;
             }
-/*            if(byteSent==0){
+            if(byteSent==0){
                 printf("Peer closed TCP connection socket.\n");
                 return -1;
-            }*/
+            }
             if(byteSent<l2){
                 printf("message didnt fully arrived sending again...\n");
-                byteSent = send(sender_sockfd,msg2,l2,0);
+                //byteSent = send(sender_sockfd,msg2,l2,0);
             }
-        }
+        
         printf("message fully sent!\nPrepairing to send again, if you want to stop press Y or y else any other key:\n");
         scanf("%c",&loop);
         //giving the user an option to send the message again.
@@ -189,15 +192,20 @@ int main(){
             char ctumsg[] = "Continue connection";
             int lenEx = strlen(ctumsg)+1;
             byteSent=0;
-            while((byteSent=send(sender_sockfd,ctumsg,lenEx,0))<lenEx){ //until the message is fully sent.
+            while(1){ //until the message is fully sent.
+                byteSent=send(sender_sockfd,ctumsg,lenEx,0);
                 if(byteSent==-1){
                     perror("continue send() error!\n");
                     return -1;
                 }
-/*                if(byteSent==0){
+                if(byteSent==0){
                     printf("Peer closed TCP connection socket.\n");
                     return -1;
-                }*/
+                }
+                if(byteSent==lenEx){
+                    printf("%s\n",ctumsg);
+                    break;
+                }
             } 
 
         }
@@ -206,7 +214,8 @@ int main(){
     char exitmsg[] = "Closeing connection";
     int lenEx = strlen(exitmsg)+1;
     byteSent=0;
-    while((byteSent=send(sender_sockfd,exitmsg,lenEx,0))<lenEx){ //until the message is fully sent.
+    while(1){ //until the message is fully sent.
+        byteSent=send(sender_sockfd,exitmsg,lenEx,0);
         if(byteSent==-1){
             perror("exit send() error!\n");
         return -1;
@@ -214,6 +223,10 @@ int main(){
         if(byteSent==0){
             printf("Peer closed TCP connection socket.\n");
             return -1;
+        }
+        if(byteSent==lenEx){
+            printf("%s\n",exitmsg);
+            break;
         }
     }
     printf("Exit message sent successfully!\n");

@@ -9,7 +9,7 @@ testS: Sender.o
 	$(CC) $(FLAGS) -o testS Sender.o
 Sender.o: Sender.c
 	$(CC) $(FLAGS) -c Sender.c
-Receiver.o: Sender.c
+Receiver.o: Receiver.c
 	$(CC) $(FLAGS) -c Receiver.c
 
 .PHONY:clean all
