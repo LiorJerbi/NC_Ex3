@@ -12,7 +12,7 @@
 #include <sys/time.h>
 
 #define RECEIVER_PORT 5093 //the port that the reciver listens to.
-#define BUFF_SIZE 32768
+#define BUFF_SIZE 32768  //receiver buffer size
 #define MSG_SIZE 601418
 
 /*
@@ -63,7 +63,8 @@ int main(){
     printf("Bind succeeded!\n");
 
     //Make the socket listening connection requests
-    if(listen(listening_socket, 7000)== -1){ //maximum requests in queue is 7.
+    //maximum requests in queue is 7.
+    if(listen(listening_socket, 7000)== -1){    
         perror("listen() failed!\n");
         close(listening_socket);
         return -1;
@@ -87,11 +88,11 @@ int main(){
 
     while(Flag){
 
-        char buff[BUFF_SIZE]={0};
-        char buffcc[256] = {0};
+        char buff[BUFF_SIZE]={0};       //initializing buffer
+        char buffcc[256] = {0};         //buffer for CC switch   
         socklen_t buflen = sizeof(buffcc);
         printf("Setting CC Algo to cubic\n");
-        strcpy(buffcc,"cubic");   //Changing the CC algo to "cubic"
+        strcpy(buffcc,"cubic");         //Changing the CC algo to "cubic"
         if(setsockopt(senderSocket,IPPROTO_TCP,TCP_CONGESTION,buffcc,buflen)!=0){
             perror("setsockopt() failed\n");
             close(senderSocket);
@@ -106,12 +107,12 @@ int main(){
         
         printf("Receiver ready\n");
         rcveduntil1 = 0 ,tryCount1 = 0;
-        gettimeofday(&staTime,NULL); //a variable for holding the time to calculate
-        while(rcveduntil1<MSG_SIZE && (rcved1 = recv(senderSocket,buff,sizeof(buff),0))>0){
+        gettimeofday(&staTime,NULL);    //catching the start time of the receival
+        while(rcveduntil1<MSG_SIZE){    //loop until receiving first part of message in cubic
+            rcved1 = recv(senderSocket,buff,sizeof(buff),0);
             rcveduntil1 += rcved1;
-            tryCount1++;//Attempt count
-            //printf("received now: %ld, received total: %ld,Seg Num: %d\n",rcved1,rcveduntil1,tryCount1);
-            if(rcveduntil1 == MSG_SIZE){
+            tryCount1++;                    
+            if(rcveduntil1 == MSG_SIZE){   
                 printf("first part arrived completely\n");
                 break;
             }
@@ -126,22 +127,17 @@ int main(){
                 return -1;
             }
         }
-        gettimeofday(&finTime,NULL);
+        gettimeofday(&finTime,NULL);        //catching the finish time of the receival
         secs = (double)(finTime.tv_sec-staTime.tv_sec);
         usecs = (double)(finTime.tv_usec-staTime.tv_usec);
         double timeSum1 = (double)((secs*1000)+(usecs/1000));  //calculating time needed for messag to arrive.
-        timeData[0][i]=timeSum1;
-        /*printf("Recieved bytes total:%ld in %f Time took completley:.\n",rcveduntil1,timeSum1);
-        printf("New Average time for receiving data: %f\n",timeSum1/tryCount1);*/
+        timeData[0][i]=timeSum1;                               //filling the Data set with new Average time
         printf("Average time for arrival: %f. in %d Segments.\n",timeSum1,tryCount1);
 
-        //restore value of varibals
 
-        //print what the is the correct Ack
         byteSent = 0;
+        //Sending Acknowledgment agreed upon for the arrival of the 1st part.
         while((byteSent = send(senderSocket,Ack,aLen,0))>0){
-            //byteSent = send(senderSocket,Ack,aLen,0);  //(asaf) no need.
-            //printf("aLen: %d,size of ack: %ld,byte sent: %d \n ",aLen,sizeof(Ack),byteSent);    
             if(byteSent == -1){
                 perror("Acknowledgment send() failed.");
                 return -1;
@@ -160,7 +156,7 @@ int main(){
                 break;
             }
         }
-        //Changing the CC algo
+        //Changing the CC algo to reno
         printf("Setting CC Algo to reno\n");
         strcpy(buffcc,"reno");
         buflen = sizeof(buffcc);
@@ -176,11 +172,11 @@ int main(){
             return -1;
         }
         rcveduntil2 = 0,tryCount2=0;
-        gettimeofday(&staTime,NULL);
-        while(rcveduntil2<MSG_SIZE &&(rcved2 = recv(senderSocket,buff,sizeof(buff),0))>0){  //loop for receiving second half of message from sender.(changed CC)
+        gettimeofday(&staTime,NULL);        //catching the start time of the receival        
+        while(rcveduntil2<MSG_SIZE){        //loop until receiving second half of message in reno.(changed CC)
+            rcved2 = recv(senderSocket,buff,sizeof(buff),0);
             rcveduntil2+=rcved2;
-            tryCount2++;       //Attempt count
-            //printf("received now: %ld, received total: %ld.,trycount= %d\n",rcved2,rcveduntil2,tryCount2);
+            tryCount2++;       
             if(rcveduntil2==MSG_SIZE){
                 printf("second part arrived completely\n");
                 break;
@@ -196,20 +192,19 @@ int main(){
                 return -1;
             }      
         }
-        gettimeofday(&finTime,NULL);
+        gettimeofday(&finTime,NULL);    //catching the finish time of the receival
         secs = (double)(finTime.tv_sec-staTime.tv_sec);
         usecs = (double)(finTime.tv_usec-staTime.tv_usec);
         double timeSum2 = (double)((secs*1000)+(usecs/1000));  //calculating time needed for messag to arrive.
-        timeData[1][i]=timeSum2;
-        /*printf("Recieved bytes total:%ld in %f seconds.\n",rcveduntil2,timeSum2);
-        printf("New Average time for receiving data: %f\n",timeSum2/tryCount2);*/
+        timeData[1][i]=timeSum2;                               //filling the Data set with new Average time
+        i++;
         printf("Average time for arrival:% f. in %d attempts.\n",timeSum2,tryCount2);
 
-        //checking for exit\continue msg.
 
         byteRec = 0;
         printf("The receiver wait for sender decision \n");
-
+        
+        //Waiting for Exit\Continue message
         while(1){
             byteRec = recv(senderSocket,buff,sizeof(buff),0);
             if(byteRec<0){
@@ -223,17 +218,16 @@ int main(){
                 Flag=0;
                 break;;           
             }
-            if(strcmp(buff,exitmsg) == 0){
+            if(strcmp(buff,exitmsg) == 0){      //stop the receival of data. print and calculate the times.
                 printf("all times:\n");
                 steps=i;
-                while(i>=0){
+                while(i>0){
+                i--;
                 printf("Round num: %d. Cubic: %f. Reno: %f.\n",i+1,timeData[0][i],timeData[1][i]);
                 timerAvg1+=timeData[0][i];
                 timerAvg2+=timeData[1][i];
-                i--;
+                
                 }
-                //printf("Averae time took to send the 1st part: %f\nAverae time took to send the 2nd part: %f \n",(timeSum1/tryCount1),(timeSum2/tryCount2));//calculate avg time of each part of the msg
-                //printf("Average time for sending the complete file: %f\n",((timeSum1+timeSum2)/(tryCount1+tryCount2)));//need to print avg time of all file
                 printf("Average time for cubic: %f\n",timerAvg1/steps);
                 printf("Average time for reno: %f\n",timerAvg2/steps);
                 printf("Average time for all the file: %f\n",(timerAvg1+timerAvg2)/(steps*2));
@@ -241,13 +235,12 @@ int main(){
                 Flag=0;
                 break;
             }
-            if(strcmp(buff,ctumsg) == 0){
+            if(strcmp(buff,ctumsg) == 0){       //continue for another receival
                 printf("Receiver continue..\n");
                 break;
             }  
         }
-        i++;
     }
-close(listening_socket);
+close(listening_socket);        //closing listening socket.
 return 0;
 }
