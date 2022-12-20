@@ -177,7 +177,7 @@ int main(){
                 printf("message didnt fully arrived sending again...\n");
             }
         }
-        printf("message fully sent!\nPrepairing to send again, if you want to stop press Y or y else any other key:\n");
+        printf("message fully sent! Prepairing to send again, if you want to stop press Y or y else any other key:\n");
         scanf(" %c",&loop);
         
         //Continue communication with receiver

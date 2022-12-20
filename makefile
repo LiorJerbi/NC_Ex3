@@ -1,12 +1,12 @@
 CC = gcc
 FLAGS = -Wall -g -fPIC
 
-all: Sender.o Receiver.o testS testR
+all: Sender.o Receiver.o Sender Receiver
 
-testR: Receiver.o
-	$(CC) $(FLAGS) -o testR Receiver.o
-testS: Sender.o
-	$(CC) $(FLAGS) -o testS Sender.o
+Receiver: Receiver.o
+	$(CC) $(FLAGS) -o Receiver Receiver.o
+Sender: Sender.o
+	$(CC) $(FLAGS) -o Sender Sender.o
 Sender.o: Sender.c
 	$(CC) $(FLAGS) -c Sender.c
 Receiver.o: Receiver.c
@@ -15,4 +15,4 @@ Receiver.o: Receiver.c
 .PHONY:clean all
 
 clean:
-	rm -f *.o testS testR
+	rm -f *.o Sender Receiver
