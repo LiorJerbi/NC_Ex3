@@ -206,7 +206,6 @@ int main(){
                     break;
                 }
             } 
-
         }
     }
     //Finish communication with receiver.
@@ -228,11 +227,8 @@ int main(){
             break;
         }
     }
-    printf("Exit message sent successfully!\n");
-    close(sender_sockfd);  //closing the sender socket.
-
-
-
+printf("Exit message sent successfully!\n");
+close(sender_sockfd);  //closing the sender socket.
 free(msg1);
 free(msg2);
 return -1;

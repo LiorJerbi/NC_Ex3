@@ -89,22 +89,6 @@ int main(){
     while(Flag){
 
         char buff[BUFF_SIZE]={0};       //initializing buffer
-        char buffcc[256] = {0};         //buffer for CC switch   
-        socklen_t buflen = sizeof(buffcc);
-        printf("Setting CC Algo to cubic\n");
-        strcpy(buffcc,"cubic");         //Changing the CC algo to "cubic"
-        if(setsockopt(senderSocket,IPPROTO_TCP,TCP_CONGESTION,buffcc,buflen)!=0){
-            perror("setsockopt() failed\n");
-            close(senderSocket);
-            return -1;
-        }
-        buflen = sizeof(buffcc);
-        if(getsockopt(senderSocket,IPPROTO_TCP,TCP_CONGESTION,buffcc,&buflen)!=0){
-            perror("getsockopt() failed\n");
-            close(senderSocket);
-            return -1;
-        }
-        
         printf("Receiver ready\n");
         rcveduntil1 = 0 ,tryCount1 = 0;
         gettimeofday(&staTime,NULL);    //catching the start time of the receival
@@ -155,21 +139,6 @@ int main(){
                 printf("Acknowledgment sent successfully, waiting for data.\n");
                 break;
             }
-        }
-        //Changing the CC algo to reno
-        printf("Setting CC Algo to reno\n");
-        strcpy(buffcc,"reno");
-        buflen = sizeof(buffcc);
-        if(setsockopt(senderSocket,IPPROTO_TCP,TCP_CONGESTION,buffcc,buflen)!=0){
-            perror("setsockopt() failed\n");
-            close(senderSocket);
-            return -1;
-        }
-        buflen = sizeof(buffcc);
-        if(getsockopt(senderSocket,IPPROTO_TCP,TCP_CONGESTION,buffcc,&buflen)!=0){
-            perror("getsockopt() failed\n");
-            close(senderSocket);
-            return -1;
         }
         rcveduntil2 = 0,tryCount2=0;
         gettimeofday(&staTime,NULL);        //catching the start time of the receival        
